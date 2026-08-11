@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#07101f" />
+    <title>RepBoard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="topbar">
+        <div class="brand" aria-label="RepBoard">
+          <img src="../build/icon.png" alt="" />
+          <div><strong>RepBoard</strong><span>Workout touch board</span></div>
+        </div>
+
+        <nav class="mode-tabs" aria-label="Views">
+          <button class="mode-tab active" data-view="counter" aria-pressed="true">Counter</button>
+          <button class="mode-tab" data-view="board" aria-pressed="false">Board</button>
+          <button class="mode-tab" data-view="history" aria-pressed="false">History</button>
+        </nav>
+
+        <div class="window-actions">
+          <button id="awakeBtn" class="icon-button active" title="Keep the display awake" aria-pressed="true">
+            <span class="status-dot"></span><span>Awake</span>
+          </button>
+          <button id="pinBtn" class="icon-button" title="Keep RepBoard above other windows" aria-pressed="false">Pin</button>
+          <button id="fullscreenBtn" class="square-button" title="Fullscreen (F11)" aria-label="Toggle fullscreen">
+            <svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+          </button>
+          <button id="settingsBtn" class="square-button" title="Settings" aria-label="Open settings">
+            <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.37a1.7 1.7 0 0 0-1 .63 1.7 1.7 0 0 0-.37 1.06V21h-4v-.09A1.7 1.7 0 0 0 8.57 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.63-1 1.7 1.7 0 0 0-1.06-.37H2v-4h.5a1.7 1.7 0 0 0 1.7-1.37 1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.63 3.5l.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1-1A1.7 1.7 0 0 0 9.94 2H14v.09A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 8c.15.43.37.78.63 1 .3.25.66.37 1.06.37H22v4h-.94A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section id="counterView" class="view active" aria-label="Rep counter">
+          <aside class="side-panel exercise-panel">
+            <div class="panel-heading"><span>Exercise</span><button id="editExercisesBtn" class="text-button">Edit</button></div>
+            <div id="exerciseList" class="exercise-list"></div>
+            <div class="session-summary">
+              <div class="summary-title"><span>Workout time</span><button id="resetTimerBtn" type="button">Reset</button></div>
+              <strong id="elapsedTime">00:00</strong>
+              <div><span><b id="setCount">0</b> completed sets</span></div>
+            </div>
+            <div class="workout-controls">
+              <button id="startWorkoutBtn" class="primary-button full">Start workout</button>
+              <div id="activeWorkoutControls" class="active-workout-controls" hidden>
+                <button id="pauseWorkoutBtn" class="workout-action pause" type="button">Pause</button>
+                <button id="finishWorkoutBtn" class="workout-action finish" type="button">Finish</button>
+                <button id="restartWorkoutBtn" class="workout-action restart" type="button">Restart</button>
+              </div>
+            </div>
+          </aside>
+
+          <section class="counter-stage">
+            <button id="counterTap" class="counter-ring" aria-label="Record one completed set">
+              <div class="counter-inner">
+                <span id="countNumber">0</span>
+                <small>SETS</small>
+                <em>Tap after your set</em>
+              </div>
+            </button>
+
+            <div class="counter-controls">
+              <button id="minusBtn" class="count-button minus" aria-label="Remove the last completed set">−</button>
+              <button id="plusBtn" class="count-button plus" aria-label="Record one completed set">+</button>
+            </div>
+
+            <div class="target-row">
+              <span>Set goal</span>
+              <div class="stepper">
+                <button id="targetMinus" aria-label="Decrease target">−</button>
+                <strong id="targetNumber">3</strong>
+                <button id="targetPlus" aria-label="Increase target">+</button>
+              </div>
+              <span id="targetHint">3 to go</span>
+            </div>
+
+          </section>
+
+          <aside class="side-panel sets-panel">
+            <div class="panel-heading"><span>This workout</span><span class="today-label">Today</span></div>
+            <div id="emptySets" class="empty-state"><span class="empty-icon">✓</span><strong>Your sets land here</strong><p>Finish your reps, then tap once to record the set.</p></div>
+            <div id="setsList" class="sets-list"></div>
+          </aside>
+        </section>
+
+        <section id="boardView" class="view board-view" aria-label="Whiteboard">
+          <div class="board-toolbar">
+            <div class="tool-group" aria-label="Drawing tools">
+              <button class="tool-button active" data-tool="pen" aria-pressed="true">Pen</button>
+              <button class="tool-button" data-tool="eraser" aria-pressed="false">Eraser</button>
+            </div>
+            <div id="colorPicker" class="color-picker" aria-label="Pen color">
+              <button data-color="#b8ff28" class="color active" style="--color:#b8ff28" aria-label="Lime"></button>
+              <button data-color="#37d5ff" class="color" style="--color:#37d5ff" aria-label="Cyan"></button>
+              <button data-color="#ffffff" class="color" style="--color:#ffffff" aria-label="White"></button>
+              <button data-color="#ff6b8b" class="color" style="--color:#ff6b8b" aria-label="Pink"></button>
+              <button data-color="#ffc857" class="color" style="--color:#ffc857" aria-label="Amber"></button>
+            </div>
+            <label class="size-control">Size <input id="brushSize" type="range" min="2" max="30" value="7" /></label>
+            <div class="tool-spacer"></div>
+            <button id="undoDrawBtn" class="tool-button">Undo</button>
+            <button id="clearBoardBtn" class="tool-button danger">Clear</button>
+          </div>
+          <div class="canvas-wrap"><canvas id="drawCanvas" aria-label="Touch drawing board"></canvas><div id="boardTip" class="board-tip">Draw with your finger or pen</div></div>
+        </section>
+
+        <section id="historyView" class="view history-view" aria-label="Workout history">
+          <div class="history-header"><div><span class="eyebrow">Progress</span><h1>Workout history</h1><p>Everything is stored only on this computer.</p></div><button id="clearHistoryBtn" class="secondary-button">Clear history</button></div>
+          <div id="historyStats" class="history-stats"></div>
+          <div id="historyContent" class="history-content"></div>
+        </section>
+      </main>
+
+      <div id="restBar" class="rest-bar" hidden>
+        <div><span>REST</span><strong id="restTime">1:00</strong></div>
+        <div class="rest-progress"><i id="restProgress"></i></div>
+        <button id="restSkipBtn">Skip</button>
+      </div>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="confetti" class="confetti" aria-hidden="true"></div>
+
+      <dialog id="settingsDialog" class="modal">
+        <form method="dialog">
+          <div class="modal-header"><div><span class="eyebrow">Preferences</span><h2>Settings</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div>
+          <label class="setting-row"><div><strong>Target sound</strong><span>Play a short tone when you reach the target</span></div><input id="soundSetting" type="checkbox" /></label>
+          <label class="setting-row"><div><strong>Keep display awake</strong><span>Prevent the screen from sleeping during a workout</span></div><input id="awakeSetting" type="checkbox" /></label>
+          <label class="field-row"><span>Default set goal</span><input id="defaultTargetSetting" type="number" min="1" max="99" /></label>
+          <label class="field-row"><span>Rest timer (seconds)</span><input id="restSetting" type="number" min="0" max="600" /></label>
+          <button id="saveSettingsBtn" class="primary-button" value="default">Save settings</button>
+        </form>
+      </dialog>
+
+      <dialog id="exerciseDialog" class="modal exercise-modal">
+        <form method="dialog">
+          <div class="modal-header"><div><span class="eyebrow">Customize</span><h2>Edit exercises</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div>
+          <p class="exercise-help">Rename exercises or use the arrows to change their order.</p>
+          <div id="exerciseEditorList" class="exercise-editor-list"></div>
+          <div class="add-exercise"><input id="newExerciseInput" maxlength="30" placeholder="Add your own exercise" /><button id="addExerciseBtn" type="button">Add</button></div>
+          <button id="saveExercisesBtn" class="primary-button" type="button">Save exercises</button>
+        </form>
+      </dialog>
+
+      <dialog id="confirmDialog" class="modal confirm-modal">
+        <form method="dialog">
+          <div class="modal-header"><div><span class="eyebrow">Please confirm</span><h2 id="confirmTitle">Are you sure?</h2></div></div>
+          <p id="confirmMessage"></p>
+          <div class="modal-actions"><button id="confirmCancel" class="secondary-button" value="cancel">Cancel</button><button id="confirmOk" class="danger-button" value="default">Confirm</button></div>
+        </form>
+      </dialog>
+    </div>
+    <script src="state.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
