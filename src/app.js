@@ -23,13 +23,14 @@
   let restTimer = null;
   let restEndsAt = 0;
   let restDuration = 0;
-  let targetCelebrated = core.setsForExercise(state.sets, state.currentExercise) >= core.targetForExercise(state, state.currentExercise);
+  let targetCelebrated = core.setsForExercise(state.sets, selectedExercise(), state.activeDay) >= core.targetForExercise(state, selectedExercise());
 
   const elements = {
     count: $('#countNumber'),
     ring: $('#counterTap'),
     target: $('#targetNumber'),
     targetHint: $('#targetHint'),
+    daySelect: $('#daySelect'),
     exerciseList: $('#exerciseList'),
     exerciseEditorList: $('#exerciseEditorList'),
     setsList: $('#setsList'),
@@ -49,6 +50,18 @@
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function activePlan() {
+    return core.exercisePlanForDay(state, state.activeDay);
+  }
+
+  function selectedExercise() {
+    return activePlan().currentExercise;
+  }
+
+  function dayLabel(day = state.activeDay) {
+    return `${day.charAt(0).toUpperCase()}${day.slice(1)}`;
   }
 
   function formatTime(seconds) {
@@ -86,9 +99,9 @@
   }
 
   function renderCounter() {
-    const completed = core.setsForExercise(state.sets, state.currentExercise);
-    const target = core.targetForExercise(state, state.currentExercise);
-    state.target = target;
+    const exercise = selectedExercise();
+    const completed = core.setsForExercise(state.sets, exercise, state.activeDay);
+    const target = core.targetForExercise(state, exercise);
     const progress = Math.min(1, completed / target);
     elements.count.textContent = completed;
     elements.target.textContent = target;
@@ -102,9 +115,8 @@
   }
 
   function chooseExercise(name) {
-    state.currentExercise = name;
-    state.target = core.targetForExercise(state, name);
-    targetCelebrated = core.setsForExercise(state.sets, name) >= state.target;
+    activePlan().currentExercise = name;
+    targetCelebrated = core.setsForExercise(state.sets, name, state.activeDay) >= core.targetForExercise(state, name);
     saveState();
     renderAll();
   }
@@ -113,7 +125,7 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'exercise-item';
-    if (name === state.currentExercise) button.classList.add('active');
+    if (name === selectedExercise()) button.classList.add('active');
     const label = document.createElement('span');
     label.textContent = name;
     button.append(label);
@@ -122,8 +134,10 @@
   }
 
   function renderExercises() {
+    const plan = activePlan();
+    elements.daySelect.value = state.activeDay;
     elements.exerciseList.replaceChildren();
-    state.exercises.forEach((name) => elements.exerciseList.append(createExerciseButton(name)));
+    plan.exercises.forEach((name) => elements.exerciseList.append(createExerciseButton(name)));
   }
 
   function renderExerciseEditor() {
@@ -173,7 +187,8 @@
   }
 
   function openExerciseEditor() {
-    exerciseDraft = state.exercises.map((name) => ({ originalName: name, name }));
+    exerciseDraft = activePlan().exercises.map((name) => ({ originalName: name, name }));
+    $('#exerciseDialogTitle').textContent = `Edit ${dayLabel()} exercises`;
     $('#newExerciseInput').value = '';
     renderExerciseEditor();
     elements.exerciseDialog.showModal();
@@ -189,24 +204,26 @@
     const renamed = new Map(
       exerciseDraft.filter((item) => item.originalName).map((item) => [item.originalName, item.name.trim()])
     );
-    const renameSet = (set) => ({ ...set, exercise: renamed.get(set.exercise) || set.exercise });
+    const renameSet = (set) => set.day === state.activeDay
+      ? { ...set, exercise: renamed.get(set.exercise) || set.exercise }
+      : set;
     state.sets = state.sets.map(renameSet);
     state.history = state.history.map((session) => ({ ...session, sets: (session.sets || []).map(renameSet) }));
-    const previousTargets = state.exerciseTargets || {};
-    state.exerciseTargets = Object.fromEntries(exerciseDraft.map((item) => {
+    const plan = activePlan();
+    const previousTargets = plan.exerciseTargets || {};
+    plan.exerciseTargets = Object.fromEntries(exerciseDraft.map((item) => {
       const name = item.name.trim();
       const goal = item.originalName
         ? core.clamp(previousTargets[item.originalName] || state.settings.defaultTarget, 1, 99)
         : state.settings.defaultTarget;
       return [name, goal];
     }));
-    state.currentExercise = renamed.get(state.currentExercise) || (names.includes(state.currentExercise) ? state.currentExercise : names[0]);
-    state.exercises = names;
-    state.target = core.targetForExercise(state, state.currentExercise);
+    plan.currentExercise = renamed.get(plan.currentExercise) || (names.includes(plan.currentExercise) ? plan.currentExercise : names[0]);
+    plan.exercises = names;
     saveState();
     renderAll();
     elements.exerciseDialog.close();
-    toast('Exercises updated');
+    toast(`${dayLabel()} exercises updated`);
   }
 
   function renderSets() {
@@ -219,7 +236,9 @@
       const top = document.createElement('div');
       const name = document.createElement('strong');
       name.textContent = set.exercise;
-      const exerciseSetNumber = state.sets.slice(0, index + 1).filter((item) => item.exercise === set.exercise).length;
+      const exerciseSetNumber = state.sets.slice(0, index + 1).filter((item) => (
+        item.exercise === set.exercise && item.day === set.day
+      )).length;
       const setLabel = document.createElement('b');
       setLabel.textContent = `Set ${exerciseSetNumber}`;
       const remove = document.createElement('button');
@@ -276,22 +295,28 @@
       elements.historyContent.append(empty);
       return;
     }
-    sessions.slice().reverse().forEach((session) => {
-      const day = document.createElement('article');
+    sessions.slice().reverse().forEach((session, sessionIndex) => {
+      const day = document.createElement('details');
       day.className = 'history-day';
-      const header = document.createElement('header');
+      day.open = sessionIndex === 0;
+      const header = document.createElement('summary');
       const title = document.createElement('h3');
       title.textContent = `${formatDate(session.startedAt)}${session.current ? ' • Current workout' : ''}`;
       const summary = document.createElement('span');
-      const duration = Number(session.durationMs);
-      summary.textContent = `${session.sets.length} completed sets${Number.isFinite(duration) ? ` • ${formatTime(duration / 1000)}` : ''}`;
+      const savedDuration = Number(session.durationMs);
+      const timestampsDuration = Number(session.endedAt) - Number(session.startedAt);
+      const duration = Number.isFinite(savedDuration)
+        ? Math.max(0, savedDuration)
+        : Number.isFinite(timestampsDuration) ? Math.max(0, timestampsDuration) : 0;
+      summary.textContent = `${session.sets.length} completed sets • ${formatTime(duration / 1000)}`;
       header.append(title, summary);
       day.append(header);
       const setNumbers = new Map();
       const counts = new Map();
       session.sets.forEach((set) => {
-        const next = (counts.get(set.exercise) || 0) + 1;
-        counts.set(set.exercise, next);
+        const exerciseKey = `${set.day || ''}:${set.exercise}`;
+        const next = (counts.get(exerciseKey) || 0) + 1;
+        counts.set(exerciseKey, next);
         setNumbers.set(set.id, next);
       });
       session.sets.slice().reverse().forEach((set) => {
@@ -388,10 +413,11 @@
 
   function recordSet() {
     if (!state.workoutActive) { toast('Press Start workout first'); return; }
-    const previous = core.setsForExercise(state.sets, state.currentExercise);
+    const exercise = selectedExercise();
+    const previous = core.setsForExercise(state.sets, exercise, state.activeDay);
     state = core.completeSet(state);
     const completed = previous + 1;
-    const target = core.targetForExercise(state, state.currentExercise);
+    const target = core.targetForExercise(state, exercise);
     saveState();
     renderAll();
     elements.ring.classList.remove('bump');
@@ -400,26 +426,28 @@
       targetCelebrated = true;
       celebrate();
     }
-    toast(`Set ${completed} saved for ${state.currentExercise}`);
+    toast(`Set ${completed} saved for ${exercise}`);
     startRestTimer(state.settings.restSeconds);
   }
 
   function removeLastSet() {
     if (!state.workoutActive) { toast('Press Start workout first'); return; }
-    const previous = core.setsForExercise(state.sets, state.currentExercise);
-    if (!previous) { toast(`No ${state.currentExercise} sets to remove`); return; }
-    state = core.removeLastSet(state, state.currentExercise);
-    targetCelebrated = core.setsForExercise(state.sets, state.currentExercise) >= core.targetForExercise(state, state.currentExercise);
+    const exercise = selectedExercise();
+    const previous = core.setsForExercise(state.sets, exercise, state.activeDay);
+    if (!previous) { toast(`No ${exercise} sets to remove`); return; }
+    state = core.removeLastSet(state, exercise, state.activeDay);
+    targetCelebrated = core.setsForExercise(state.sets, exercise, state.activeDay) >= core.targetForExercise(state, exercise);
     saveState();
     renderAll();
     toast('Last set removed');
   }
 
   function setTarget(delta) {
-    const currentTarget = core.targetForExercise(state, state.currentExercise);
-    state.target = core.clamp(currentTarget + delta, 1, 99);
-    state.exerciseTargets = { ...state.exerciseTargets, [state.currentExercise]: state.target };
-    targetCelebrated = core.setsForExercise(state.sets, state.currentExercise) >= state.target;
+    const exercise = selectedExercise();
+    const plan = activePlan();
+    const target = core.clamp(core.targetForExercise(state, exercise) + delta, 1, 99);
+    plan.exerciseTargets = { ...plan.exerciseTargets, [exercise]: target };
+    targetCelebrated = core.setsForExercise(state.sets, exercise, state.activeDay) >= target;
     saveState();
     renderCounter();
   }
@@ -496,6 +524,14 @@
   $('#targetMinus').addEventListener('click', () => setTarget(-1));
   $('#targetPlus').addEventListener('click', () => setTarget(1));
   $('#restSkipBtn').addEventListener('click', stopRestTimer);
+
+  elements.daySelect.addEventListener('change', (event) => {
+    state.activeDay = event.target.value;
+    const exercise = selectedExercise();
+    targetCelebrated = core.setsForExercise(state.sets, exercise, state.activeDay) >= core.targetForExercise(state, exercise);
+    saveState();
+    renderAll();
+  });
 
   $('#editExercisesBtn').addEventListener('click', openExerciseEditor);
   $('#addExerciseBtn').addEventListener('click', () => {

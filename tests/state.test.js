@@ -2,26 +2,35 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../src/state.js');
 
+function plan(state, day = state.activeDay) {
+  return core.exercisePlanForDay(state, day);
+}
+
+function selectExercise(state, exercise, day = state.activeDay) {
+  plan(state, day).currentExercise = exercise;
+  return state;
+}
+
 test('a completed set is recorded immediately', () => {
-  const state = { ...core.defaultState(100), currentExercise: 'Squats' };
+  const state = selectExercise(core.defaultState(100), 'Squats');
   const next = core.completeSet(state, 200);
   assert.equal(state.sets.length, 0);
   assert.equal(next.sets.length, 1);
   assert.equal(next.sets[0].exercise, 'Squats');
+  assert.equal(next.sets[0].day, state.activeDay);
   assert.equal(next.sets[0].completedAt, 200);
 });
 
 test('completed sets use the selected exercise goal', () => {
-  const state = core.defaultState(100);
-  state.currentExercise = 'Squats';
-  state.exerciseTargets = { ...state.exerciseTargets, Squats: 7 };
+  const state = selectExercise(core.defaultState(100), 'Squats');
+  plan(state).exerciseTargets = { ...plan(state).exerciseTargets, Squats: 7 };
   const next = core.completeSet(state, 200);
   assert.equal(next.sets[0].goal, 7);
 });
 
 test('exercise goals are independent', () => {
   const state = core.defaultState(100);
-  state.exerciseTargets = { ...state.exerciseTargets, 'Push-ups': 5, Squats: 2 };
+  plan(state).exerciseTargets = { ...plan(state).exerciseTargets, 'Push-ups': 5, Squats: 2 };
   assert.equal(core.targetForExercise(state, 'Push-ups'), 5);
   assert.equal(core.targetForExercise(state, 'Squats'), 2);
 });
@@ -29,15 +38,15 @@ test('exercise goals are independent', () => {
 test('set counts are tracked independently by exercise', () => {
   let state = core.completeSet(core.defaultState(100), 200);
   state = core.completeSet(state, 300);
-  state = core.completeSet({ ...state, currentExercise: 'Squats' }, 400);
+  state = core.completeSet(selectExercise(state, 'Squats'), 400);
   assert.equal(core.setsForExercise(state.sets, 'Push-ups'), 2);
   assert.equal(core.setsForExercise(state.sets, 'Squats'), 1);
 });
 
 test('remove last set only affects the selected exercise', () => {
   let state = core.completeSet(core.defaultState(100), 200);
-  state = core.completeSet({ ...state, currentExercise: 'Squats' }, 300);
-  state = core.completeSet({ ...state, currentExercise: 'Push-ups' }, 400);
+  state = core.completeSet(selectExercise(state, 'Squats'), 300);
+  state = core.completeSet(selectExercise(state, 'Push-ups'), 400);
   const next = core.removeLastSet(state, 'Push-ups');
   assert.equal(core.setsForExercise(next.sets, 'Push-ups'), 1);
   assert.equal(core.setsForExercise(next.sets, 'Squats'), 1);
@@ -73,10 +82,8 @@ test('version 1 data migrates to a three-set goal and preserves completed sets',
     settings: { defaultTarget: 10, restSeconds: 9999 }
   };
   const next = core.hydrate(old, 100);
-  assert.equal(next.version, 4);
-  assert.equal(next.count, 0);
-  assert.equal(next.target, 3);
-  assert.equal(next.exerciseTargets.Squats, 3);
+  assert.equal(next.version, 5);
+  assert.equal(plan(next).exerciseTargets.Squats, 3);
   assert.equal(next.settings.defaultTarget, 3);
   assert.equal(next.settings.restSeconds, 600);
   assert.equal(next.sets.length, 1);
@@ -92,9 +99,50 @@ test('version 3 global goal migrates to every existing exercise', () => {
     history: [],
     settings: { defaultTarget: 3 }
   }, 100);
-  assert.equal(next.version, 4);
-  assert.deepEqual(next.exerciseTargets, { 'Push-ups': 6, Squats: 6 });
-  assert.equal(next.target, 6);
+  assert.equal(next.version, 5);
+  core.WEEKDAYS.forEach((day) => {
+    assert.deepEqual(plan(next, day).exerciseTargets, { 'Push-ups': 6, Squats: 6 });
+  });
+  assert.equal(core.targetForExercise(next, 'Squats'), 6);
+});
+
+test('legacy exercises are copied into every weekday without sharing plan objects', () => {
+  const next = core.hydrate({
+    version: 4,
+    currentExercise: 'Rows',
+    exercises: ['Rows', 'Planks'],
+    exerciseTargets: { Rows: 5, Planks: 2 },
+    settings: { defaultTarget: 3 }
+  }, new Date(2026, 7, 25).getTime());
+  assert.equal(next.activeDay, 'tuesday');
+  core.WEEKDAYS.forEach((day) => {
+    assert.deepEqual(plan(next, day).exercises, ['Rows', 'Planks']);
+    assert.equal(plan(next, day).exerciseTargets.Rows, 5);
+  });
+  plan(next, 'monday').exercises.push('Pull-ups');
+  assert.deepEqual(plan(next, 'tuesday').exercises, ['Rows', 'Planks']);
+});
+
+test('weekday plans keep exercises, goals, and completed counts independent', () => {
+  let state = core.defaultState(new Date(2026, 7, 24).getTime());
+  plan(state, 'monday').exercises = ['Rows'];
+  plan(state, 'monday').currentExercise = 'Rows';
+  plan(state, 'monday').exerciseTargets = { Rows: 5 };
+  plan(state, 'tuesday').exercises = ['Rows', 'Squats'];
+  plan(state, 'tuesday').currentExercise = 'Rows';
+  plan(state, 'tuesday').exerciseTargets = { Rows: 2, Squats: 4 };
+  state = core.completeSet(state, 200);
+  state.activeDay = 'tuesday';
+  state = core.completeSet(state, 300);
+  assert.equal(core.targetForExercise(state, 'Rows', 'monday'), 5);
+  assert.equal(core.targetForExercise(state, 'Rows', 'tuesday'), 2);
+  assert.equal(core.setsForExercise(state.sets, 'Rows', 'monday'), 1);
+  assert.equal(core.setsForExercise(state.sets, 'Rows', 'tuesday'), 1);
+  const restored = core.hydrate(state, new Date(2026, 7, 25).getTime());
+  assert.deepEqual(plan(restored, 'monday').exercises, ['Rows']);
+  assert.deepEqual(plan(restored, 'tuesday').exercises, ['Rows', 'Squats']);
+  assert.equal(core.targetForExercise(restored, 'Rows', 'monday'), 5);
+  assert.equal(core.targetForExercise(restored, 'Rows', 'tuesday'), 2);
 });
 
 test('persisted data never resumes an active workout on launch', () => {

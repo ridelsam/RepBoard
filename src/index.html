@@ -39,6 +39,18 @@
         <section id="counterView" class="view active" aria-label="Rep counter">
           <aside class="side-panel exercise-panel">
             <div class="panel-heading"><span>Exercise</span><button id="editExercisesBtn" class="text-button">Edit</button></div>
+            <label class="day-picker" for="daySelect">
+              <span>Workout day</span>
+              <select id="daySelect">
+                <option value="monday">Monday</option>
+                <option value="tuesday">Tuesday</option>
+                <option value="wednesday">Wednesday</option>
+                <option value="thursday">Thursday</option>
+                <option value="friday">Friday</option>
+                <option value="saturday">Saturday</option>
+                <option value="sunday">Sunday</option>
+              </select>
+            </label>
             <div id="exerciseList" class="exercise-list"></div>
             <div class="session-summary">
               <div class="summary-title"><span>Workout time</span><button id="resetTimerBtn" type="button">Reset</button></div>
@@ -138,8 +150,8 @@
 
       <dialog id="exerciseDialog" class="modal exercise-modal">
         <form method="dialog">
-          <div class="modal-header"><div><span class="eyebrow">Customize</span><h2>Edit exercises</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div>
-          <p class="exercise-help">Rename exercises or use the arrows to change their order.</p>
+          <div class="modal-header"><div><span class="eyebrow">Customize</span><h2 id="exerciseDialogTitle">Edit exercises</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div>
+          <p class="exercise-help">These changes apply only to the selected workout day.</p>
           <div id="exerciseEditorList" class="exercise-editor-list"></div>
           <div class="add-exercise"><input id="newExerciseInput" maxlength="30" placeholder="Add your own exercise" /><button id="addExerciseBtn" type="button">Add</button></div>
           <button id="saveExercisesBtn" class="primary-button" type="button">Save exercises</button>

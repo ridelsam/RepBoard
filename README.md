@@ -12,9 +12,9 @@ RepBoard is a touch-friendly Windows set counter with individual exercise goals,
 
 - One-tap completed-set tracking
 - A separate set goal for every exercise
-- Editable and reorderable exercises
+- Separate editable and reorderable exercise plans for every weekday
 - Start, pause, resume, finish, restart, and reset timer controls
-- Local workout history
+- Local workout history with older sessions collapsed into quick summaries
 - Touch/stylus whiteboard
 - Keep-awake, always-on-top, and fullscreen controls
 
@@ -22,8 +22,8 @@ RepBoard is a touch-friendly Windows set counter with individual exercise goals,
 
 Get the [latest release](../../releases/latest):
 
-- `RepBoard-Setup-1.4.0-x64.exe` — recommended installer
-- `RepBoard-Portable-1.4.0-x64.exe` — no installation needed
+- `RepBoard-Setup-1.5.0-x64.exe` — recommended installer
+- `RepBoard-Portable-1.5.0-x64.exe` — no installation needed
 
 The app is not commercially code-signed, so Windows SmartScreen may show an **Unrecognized app** warning. You can review the source or build it yourself.
 

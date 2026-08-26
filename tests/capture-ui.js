@@ -24,6 +24,8 @@ app.whenReady().then(async () => {
       count: document.querySelector('#countNumber')?.textContent,
       exercise: document.querySelector('.exercise-item.active span')?.textContent,
       goal: document.querySelector('#targetNumber')?.textContent,
+      selectedDay: document.querySelector('#daySelect')?.value,
+      dayOptions: document.querySelector('#daySelect')?.options.length,
       timer: document.querySelector('#elapsedTime')?.textContent,
       startButton: document.querySelector('#startWorkoutBtn')?.textContent,
       optionsHidden: document.querySelector('#activeWorkoutControls')?.hidden,
@@ -39,6 +41,8 @@ app.whenReady().then(async () => {
     initial.count !== '0' ||
     initial.exercise !== 'Push-ups' ||
     initial.goal !== '3' ||
+    initial.selectedDay !== ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()] ||
+    initial.dayOptions !== 7 ||
     initial.timer !== '00:00' ||
     initial.startButton !== 'Start workout' ||
     !initial.optionsHidden ||
@@ -66,8 +70,16 @@ app.whenReady().then(async () => {
 
   const interaction = await window.webContents.executeJavaScript(
     `(() => {
+      const daySelect = document.querySelector('#daySelect');
+      const originalDay = daySelect.value;
+      const otherDay = originalDay === 'monday' ? 'tuesday' : 'monday';
       document.querySelector('#targetPlus').click();
       const pushupGoal = document.querySelector('#targetNumber').textContent;
+      daySelect.value = otherDay;
+      daySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      const otherDayPushupGoal = document.querySelector('#targetNumber').textContent;
+      daySelect.value = originalDay;
+      daySelect.dispatchEvent(new Event('change', { bubbles: true }));
       [...document.querySelectorAll('.exercise-item')].find((button) => button.textContent.trim() === 'Squats').click();
       const squatStartingGoal = document.querySelector('#targetNumber').textContent;
       document.querySelector('#targetMinus').click();
@@ -94,8 +106,15 @@ app.whenReady().then(async () => {
       const renamedGoal = document.querySelector('#targetNumber').textContent;
       [...document.querySelectorAll('.exercise-item')].find((button) => button.textContent.trim() === 'Squats').click();
       const squatGoalRestored = document.querySelector('#targetNumber').textContent;
+      const exerciseOrder = [...document.querySelectorAll('.exercise-item span')].slice(0, 2).map((item) => item.textContent);
+      daySelect.value = otherDay;
+      daySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      const otherDayExercises = [...document.querySelectorAll('.exercise-item span')].slice(0, 2).map((item) => item.textContent);
+      daySelect.value = originalDay;
+      daySelect.dispatchEvent(new Event('change', { bubbles: true }));
       return {
         pushupGoal,
+        otherDayPushupGoal,
         squatStartingGoal,
         squatGoal,
         pushupGoalRestored,
@@ -107,12 +126,14 @@ app.whenReady().then(async () => {
         savedSets,
         afterRemove,
         savedAfterRemove,
-        exerciseOrder: [...document.querySelectorAll('.exercise-item span')].slice(0, 2).map((item) => item.textContent)
+        exerciseOrder,
+        otherDayExercises
       };
     })()`
   );
   if (
     interaction.pushupGoal !== '4' ||
+    interaction.otherDayPushupGoal !== '3' ||
     interaction.squatStartingGoal !== '3' ||
     interaction.squatGoal !== '2' ||
     interaction.pushupGoalRestored !== '4' ||
@@ -124,7 +145,8 @@ app.whenReady().then(async () => {
     interaction.savedSets !== 3 ||
     interaction.afterRemove !== '2' ||
     interaction.savedAfterRemove !== 2 ||
-    interaction.exerciseOrder.join(',') !== 'Squats,Press-ups'
+    interaction.exerciseOrder.join(',') !== 'Squats,Press-ups' ||
+    interaction.otherDayExercises.join(',') !== 'Push-ups,Squats'
   ) {
     throw new Error(`Counter interaction failed: ${JSON.stringify(interaction)}`);
   }
@@ -158,7 +180,7 @@ app.whenReady().then(async () => {
       startVisible: !document.querySelector('#startWorkoutBtn').hidden,
       optionsHidden: document.querySelector('#activeWorkoutControls').hidden,
       counterDisabled: document.querySelector('#plusBtn').disabled,
-      historySummary: document.querySelector('.history-day header span')?.textContent
+      historySummary: document.querySelector('.history-day summary span')?.textContent
     })`
   );
   if (
@@ -172,6 +194,46 @@ app.whenReady().then(async () => {
   }
   const finishedImage = await window.webContents.capturePage();
   fs.writeFileSync(path.join(outputDirectory, 'repboard-counter-finished.jpg'), finishedImage.resize({ width: 800 }).toJPEG(65));
+
+  await window.webContents.executeJavaScript(`document.querySelector('#startWorkoutBtn').click(); document.querySelector('#plusBtn').click(); document.querySelector('#finishWorkoutBtn').click()`);
+  await wait(100);
+  await window.webContents.executeJavaScript(`document.querySelector('#confirmOk').click()`);
+  await wait(300);
+  await window.webContents.executeJavaScript(`document.querySelector('[data-view=history]').click()`);
+  await wait(200);
+  const historyState = await window.webContents.executeJavaScript(
+    `(() => {
+      const cards = [...document.querySelectorAll('.history-day')];
+      return {
+        count: cards.length,
+        newestOpen: cards[0]?.open,
+        olderOpen: cards[1]?.open,
+        newestRows: cards[0]?.querySelectorAll('.history-set').length,
+        olderRows: cards[1]?.querySelectorAll('.history-set').length,
+        olderSummary: cards[1]?.querySelector('summary span')?.textContent,
+        newestTitle: cards[0]?.querySelector('h3')?.textContent,
+        confirmOpen: document.querySelector('#confirmDialog').open,
+        historyActive: document.querySelector('#historyView').classList.contains('active')
+      };
+    })()`
+  );
+  if (
+    historyState.count !== 2 ||
+    !historyState.newestOpen ||
+    historyState.olderOpen ||
+    historyState.newestRows !== 1 ||
+    historyState.olderRows !== 2 ||
+    historyState.confirmOpen ||
+    !historyState.historyActive ||
+    historyState.newestTitle?.includes('Current workout') ||
+    !historyState.olderSummary?.includes('completed sets') ||
+    !historyState.olderSummary?.includes('•')
+  ) {
+    throw new Error(`History collapse failed: ${JSON.stringify(historyState)}`);
+  }
+  const historyImage = await window.webContents.capturePage();
+  fs.writeFileSync(path.join(outputDirectory, 'repboard-history.jpg'), historyImage.resize({ width: 800 }).toJPEG(65));
+  await window.webContents.executeJavaScript(`document.querySelector('[data-view=counter]').click()`);
 
   await window.webContents.executeJavaScript(`document.querySelector('#startWorkoutBtn').click(); document.querySelector('#restartWorkoutBtn').click()`);
   const restarted = await window.webContents.executeJavaScript(
