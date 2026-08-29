@@ -145,6 +145,23 @@ test('weekday plans keep exercises, goals, and completed counts independent', ()
   assert.equal(core.targetForExercise(restored, 'Rows', 'tuesday'), 2);
 });
 
+test('a workout is complete only when every exercise for that day reaches its goal', () => {
+  let state = core.defaultState(new Date(2026, 7, 24).getTime());
+  plan(state).exercises = ['Rows', 'Squats'];
+  plan(state).currentExercise = 'Rows';
+  plan(state).exerciseTargets = { Rows: 2, Squats: 1 };
+  state = core.completeSet(state, 200);
+  assert.deepEqual(core.completedExercisesForDay(state), []);
+  assert.equal(core.isWorkoutComplete(state), false);
+  state = core.completeSet(state, 300);
+  assert.deepEqual(core.completedExercisesForDay(state), ['Rows']);
+  assert.equal(core.isWorkoutComplete(state), false);
+  state = core.completeSet(selectExercise(state, 'Squats'), 400);
+  assert.deepEqual(core.completedExercisesForDay(state), ['Rows', 'Squats']);
+  assert.equal(core.isWorkoutComplete(state), true);
+  assert.equal(core.isWorkoutComplete(state, 'tuesday'), false);
+});
+
 test('persisted data never resumes an active workout on launch', () => {
   const next = core.hydrate({ ...core.defaultState(100), workoutActive: true, workoutStatus: 'running', elapsedMs: 9000 }, 200);
   assert.equal(next.workoutActive, false);

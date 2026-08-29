@@ -43,6 +43,7 @@
     restProgress: $('#restProgress'),
     historyStats: $('#historyStats'),
     historyContent: $('#historyContent'),
+    workoutProgress: $('#workoutProgress'),
     settings: $('#settingsDialog'),
     exerciseDialog: $('#exerciseDialog'),
     confirmDialog: $('#confirmDialog')
@@ -75,6 +76,23 @@
     const saved = Math.max(0, Number(state.elapsedMs) || 0);
     if (state.workoutStatus !== 'running' || !state.timerStartedAt) return saved;
     return saved + Math.max(0, now - state.timerStartedAt);
+  }
+
+  function reconcileWorkoutCompletion(now = Date.now()) {
+    const workoutComplete = core.isWorkoutComplete(state, state.activeDay);
+    if (workoutComplete && state.workoutStatus === 'running') {
+      state.elapsedMs = currentElapsedMs(now);
+      state.timerStartedAt = null;
+      state.workoutStatus = 'completed';
+      state.workoutActive = false;
+      stopRestTimer();
+      return true;
+    }
+    if (!workoutComplete && state.workoutStatus === 'completed') {
+      state.workoutStatus = 'paused';
+      state.workoutActive = false;
+    }
+    return false;
   }
 
   function formatClock(timestamp) {
@@ -125,7 +143,10 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'exercise-item';
+    const completed = core.setsForExercise(state.sets, name, state.activeDay) >= core.targetForExercise(state, name);
     if (name === selectedExercise()) button.classList.add('active');
+    if (completed) button.classList.add('completed');
+    button.setAttribute('aria-label', `${name}${completed ? ', done' : ''}`);
     const label = document.createElement('span');
     label.textContent = name;
     button.append(label);
@@ -135,9 +156,15 @@
 
   function renderExercises() {
     const plan = activePlan();
+    const completed = core.completedExercisesForDay(state, state.activeDay).length;
     elements.daySelect.value = state.activeDay;
     elements.exerciseList.replaceChildren();
     plan.exercises.forEach((name) => elements.exerciseList.append(createExerciseButton(name)));
+    const workoutComplete = completed === plan.exercises.length;
+    elements.workoutProgress.textContent = workoutComplete
+      ? `✓ Workout complete · ${completed} of ${plan.exercises.length}`
+      : `${completed} of ${plan.exercises.length} exercises done`;
+    elements.workoutProgress.classList.toggle('complete', workoutComplete);
   }
 
   function renderExerciseEditor() {
@@ -220,6 +247,7 @@
     }));
     plan.currentExercise = renamed.get(plan.currentExercise) || (names.includes(plan.currentExercise) ? plan.currentExercise : names[0]);
     plan.exercises = names;
+    reconcileWorkoutCompletion();
     saveState();
     renderAll();
     elements.exerciseDialog.close();
@@ -249,6 +277,7 @@
       remove.textContent = '×';
       remove.addEventListener('click', () => {
         state.sets.splice(index, 1);
+        reconcileWorkoutCompletion();
         saveState();
         renderAll();
         toast('Set removed');
@@ -347,11 +376,16 @@
   }
 
   function renderWorkoutState() {
-    const inProgress = state.workoutStatus === 'running' || state.workoutStatus === 'paused';
+    const completed = state.workoutStatus === 'completed';
+    const inProgress = state.workoutStatus === 'running' || state.workoutStatus === 'paused' || completed;
     $('#startWorkoutBtn').hidden = inProgress;
     $('#activeWorkoutControls').hidden = !inProgress;
+    $('#activeWorkoutControls').classList.toggle('completed', completed);
+    $('#pauseWorkoutBtn').hidden = completed;
     $('#pauseWorkoutBtn').textContent = state.workoutStatus === 'paused' ? 'Resume' : 'Pause';
-    const helper = state.workoutStatus === 'running'
+    const helper = completed
+      ? 'Workout complete'
+      : state.workoutStatus === 'running'
       ? 'Tap after your set'
       : state.workoutStatus === 'paused'
         ? 'Workout paused'
@@ -418,6 +452,7 @@
     state = core.completeSet(state);
     const completed = previous + 1;
     const target = core.targetForExercise(state, exercise);
+    const workoutCompleted = reconcileWorkoutCompletion();
     saveState();
     renderAll();
     elements.ring.classList.remove('bump');
@@ -426,8 +461,12 @@
       targetCelebrated = true;
       celebrate();
     }
-    toast(`Set ${completed} saved for ${exercise}`);
-    startRestTimer(state.settings.restSeconds);
+    if (workoutCompleted) {
+      toast('Workout complete — timer stopped');
+    } else {
+      toast(`Set ${completed} saved for ${exercise}`);
+      startRestTimer(state.settings.restSeconds);
+    }
   }
 
   function removeLastSet() {
@@ -448,8 +487,10 @@
     const target = core.clamp(core.targetForExercise(state, exercise) + delta, 1, 99);
     plan.exerciseTargets = { ...plan.exerciseTargets, [exercise]: target };
     targetCelebrated = core.setsForExercise(state.sets, exercise, state.activeDay) >= target;
+    const workoutCompleted = reconcileWorkoutCompletion();
     saveState();
-    renderCounter();
+    renderAll();
+    if (workoutCompleted) toast('Workout complete — timer stopped');
   }
 
   function startRestTimer(seconds) {
@@ -529,8 +570,10 @@
     state.activeDay = event.target.value;
     const exercise = selectedExercise();
     targetCelebrated = core.setsForExercise(state.sets, exercise, state.activeDay) >= core.targetForExercise(state, exercise);
+    const workoutCompleted = reconcileWorkoutCompletion();
     saveState();
     renderAll();
+    if (workoutCompleted) toast('Workout complete — timer stopped');
   });
 
   $('#editExercisesBtn').addEventListener('click', openExerciseEditor);
@@ -557,9 +600,10 @@
     state.workoutActive = true;
     state.workoutStatus = 'running';
     state.timerStartedAt = now;
+    const workoutCompleted = reconcileWorkoutCompletion(now);
     saveState();
     renderAll();
-    toast('Workout started');
+    toast(workoutCompleted ? 'Workout complete — timer stopped' : 'Workout started');
   });
 
   $('#pauseWorkoutBtn').addEventListener('click', () => {

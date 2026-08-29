@@ -2,6 +2,17 @@
 
 All notable public changes to RepBoard will be documented here.
 
+## [1.6.0] - 2026-08-29
+
+### Added
+
+- Added completion indicators for individual exercises and the full selected-day workout.
+- Added automatic timer stopping when every exercise reaches its set goal.
+
+### Changed
+
+- Moved the workout-day dropdown arrow slightly inward for better spacing.
+
 ## [1.5.0] - 2026-08-25
 
 ### Added

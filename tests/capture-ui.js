@@ -261,6 +261,53 @@ app.whenReady().then(async () => {
   if (reopened.timer !== '00:00' || reopened.startButton !== 'Start workout' || !reopened.optionsHidden || !reopened.counterDisabled) {
     throw new Error(`Reopen timer state failed: ${JSON.stringify(reopened)}`);
   }
+
+  await window.webContents.executeJavaScript(
+    `(() => {
+      document.querySelector('#editExercisesBtn').click();
+      while (document.querySelectorAll('.exercise-editor-row').length > 1) {
+        [...document.querySelectorAll('.remove-exercise')].at(-1).click();
+      }
+      document.querySelector('#saveExercisesBtn').click();
+      while (Number(document.querySelector('#targetNumber').textContent) > 1) {
+        document.querySelector('#targetMinus').click();
+      }
+    })()`
+  );
+  await window.webContents.executeJavaScript(`document.querySelector('#startWorkoutBtn').click()`);
+  await wait(1100);
+  const completed = await window.webContents.executeJavaScript(
+    `(() => {
+      document.querySelector('#plusBtn').click();
+      return {
+        timer: document.querySelector('#elapsedTime').textContent,
+        progress: document.querySelector('#workoutProgress').textContent,
+        indicator: document.querySelector('.exercise-item').classList.contains('completed'),
+        counterDisabled: document.querySelector('#plusBtn').disabled,
+        pauseHidden: document.querySelector('#pauseWorkoutBtn').hidden,
+        finishVisible: !document.querySelector('#finishWorkoutBtn').hidden,
+        savedStatus: JSON.parse(localStorage.getItem('repboard-state-v1')).workoutStatus
+      };
+    })()`
+  );
+  await wait(1100);
+  const completedTimerStable = await window.webContents.executeJavaScript(`document.querySelector('#elapsedTime').textContent`);
+  if (
+    completed.timer === '00:00' ||
+    completedTimerStable !== completed.timer ||
+    !completed.progress.includes('Workout complete') ||
+    !completed.indicator ||
+    !completed.counterDisabled ||
+    !completed.pauseHidden ||
+    !completed.finishVisible ||
+    completed.savedStatus !== 'completed'
+  ) {
+    throw new Error(`Automatic workout completion failed: ${JSON.stringify({ completed, completedTimerStable })}`);
+  }
+  window.showInactive();
+  await wait(250);
+  const completedImage = await window.webContents.capturePage();
+  fs.writeFileSync(path.join(outputDirectory, 'repboard-counter-complete.jpg'), completedImage.resize({ width: 800 }).toJPEG(65));
   window.destroy();
   app.quit();
 }).catch((error) => {

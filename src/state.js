@@ -173,6 +173,18 @@
     return clamp(saved || state.settings?.defaultTarget || 3, 1, 99);
   }
 
+  function completedExercisesForDay(state, day = state.activeDay) {
+    const plan = exercisePlanForDay(state, day);
+    return plan.exercises.filter((exercise) => (
+      setsForExercise(state.sets, exercise, day) >= targetForExercise(state, exercise, day)
+    ));
+  }
+
+  function isWorkoutComplete(state, day = state.activeDay) {
+    const plan = exercisePlanForDay(state, day);
+    return plan.exercises.length > 0 && completedExercisesForDay(state, day).length === plan.exercises.length;
+  }
+
   function newWorkout(state, now = Date.now()) {
     const history = state.sets.length
       ? [...state.history, {
@@ -240,6 +252,8 @@
     removeLastSet,
     setsForExercise,
     targetForExercise,
+    completedExercisesForDay,
+    isWorkoutComplete,
     newWorkout,
     finishWorkout,
     restartWorkout
