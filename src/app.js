@@ -81,16 +81,10 @@
   function reconcileWorkoutCompletion(now = Date.now()) {
     const workoutComplete = core.isWorkoutComplete(state, state.activeDay);
     if (workoutComplete && state.workoutStatus === 'running') {
-      state.elapsedMs = currentElapsedMs(now);
-      state.timerStartedAt = null;
-      state.workoutStatus = 'completed';
-      state.workoutActive = false;
+      state = core.finishWorkout(state, now, currentElapsedMs(now));
+      targetCelebrated = false;
       stopRestTimer();
       return true;
-    }
-    if (!workoutComplete && state.workoutStatus === 'completed') {
-      state.workoutStatus = 'paused';
-      state.workoutActive = false;
     }
     return false;
   }
@@ -118,6 +112,8 @@
 
   function renderCounter() {
     const exercise = selectedExercise();
+    $('#currentExerciseName').textContent = exercise;
+    $('#exercisePosition').textContent = `Exercise ${String(activePlan().exercises.indexOf(exercise) + 1).padStart(2, '0')} / ${String(activePlan().exercises.length).padStart(2, '0')}`;
     const completed = core.setsForExercise(state.sets, exercise, state.activeDay);
     const target = core.targetForExercise(state, exercise);
     const progress = Math.min(1, completed / target);
@@ -365,6 +361,7 @@
   }
 
   function renderSettings() {
+    $$('[data-theme-choice]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === state.settings.theme)));
     $('#soundSetting').checked = Boolean(state.settings.sound);
     $('#awakeSetting').checked = Boolean(state.settings.keepAwake);
     $('#defaultTargetSetting').value = state.settings.defaultTarget;
@@ -376,16 +373,11 @@
   }
 
   function renderWorkoutState() {
-    const completed = state.workoutStatus === 'completed';
-    const inProgress = state.workoutStatus === 'running' || state.workoutStatus === 'paused' || completed;
+    const inProgress = state.workoutStatus === 'running' || state.workoutStatus === 'paused';
     $('#startWorkoutBtn').hidden = inProgress;
     $('#activeWorkoutControls').hidden = !inProgress;
-    $('#activeWorkoutControls').classList.toggle('completed', completed);
-    $('#pauseWorkoutBtn').hidden = completed;
     $('#pauseWorkoutBtn').textContent = state.workoutStatus === 'paused' ? 'Resume' : 'Pause';
-    const helper = completed
-      ? 'Workout complete'
-      : state.workoutStatus === 'running'
+    const helper = state.workoutStatus === 'running'
       ? 'Tap after your set'
       : state.workoutStatus === 'paused'
         ? 'Workout paused'
@@ -429,7 +421,8 @@
   function celebrate() {
     playTargetSound();
     if (navigator.vibrate) navigator.vibrate([35, 30, 55]);
-    const colors = ['#b8ff28', '#37d5ff', '#ffffff', '#ffc857'];
+    const style = getComputedStyle(document.documentElement);
+    const colors = ['--accent', '--muted', '--text', '--amber'].map((token) => style.getPropertyValue(token).trim());
     const fragment = document.createDocumentFragment();
     for (let index = 0; index < 34; index += 1) {
       const piece = document.createElement('i');
@@ -596,7 +589,11 @@
 
   $('#startWorkoutBtn').addEventListener('click', () => {
     const now = Date.now();
-    if (state.workoutStatus === 'idle' || state.workoutStatus === 'finished') state.sessionStartedAt = now;
+    if (state.workoutStatus === 'idle' || state.workoutStatus === 'finished') {
+      state.sessionStartedAt = now;
+      state.elapsedMs = 0;
+      targetCelebrated = false;
+    }
     state.workoutActive = true;
     state.workoutStatus = 'running';
     state.timerStartedAt = now;
@@ -673,6 +670,18 @@
     renderSettings();
     elements.settings.showModal();
   });
+  function applyTheme() {
+    document.documentElement.dataset.theme = state.settings.theme;
+    $('meta[name="theme-color"]').content = state.settings.theme === 'light' ? '#f7f8f7' : '#18201c';
+    window.repboardDesktop?.setTheme(state.settings.theme);
+    redrawBoard();
+  }
+  $$('[data-theme-choice]').forEach((button) => button.addEventListener('click', () => {
+    state.settings.theme = button.dataset.themeChoice;
+    saveState();
+    applyTheme();
+    $$('[data-theme-choice]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+  }));
   $('#saveSettingsBtn').addEventListener('click', async (event) => {
     event.preventDefault();
     state.settings.sound = $('#soundSetting').checked;
@@ -723,7 +732,7 @@
   } catch { /* Start with a fresh board. */ }
   let activeStroke = null;
   let drawTool = 'pen';
-  let drawColor = '#b8ff28';
+  let drawColor = 'accent';
   let brushSize = 7;
 
   function saveBoard() {
@@ -744,7 +753,12 @@
     context.lineJoin = 'round';
     context.lineWidth = stroke.size;
     context.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
-    context.strokeStyle = stroke.color;
+    // Keep the original primary and white inks legible in light mode too.
+    // Resolve at draw time so saved strokes remain intact.
+    const ink = { '#b8ff28': 'accent', '#ffffff': 'text' }[stroke.color] || stroke.color;
+    context.strokeStyle = ['accent', 'text'].includes(ink)
+      ? getComputedStyle(document.documentElement).getPropertyValue(`--${ink}`).trim()
+      : stroke.color;
     context.beginPath();
     const first = stroke.points[0];
     context.moveTo(first.x * width, first.y * height);
@@ -850,6 +864,7 @@
     saveBoard();
   });
 
+  applyTheme();
   renderAll();
   if (window.repboardDesktop) {
     window.repboardDesktop.setKeepAwake(state.settings.keepAwake);

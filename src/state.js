@@ -60,6 +60,7 @@
       sets: [],
       history: [],
       settings: {
+        theme: 'dark',
         sound: true,
         keepAwake: true,
         alwaysOnTop: false,
@@ -79,6 +80,7 @@
     const base = defaultState(now);
     if (!raw || typeof raw !== 'object') return base;
     const settings = { ...base.settings, ...(raw.settings || {}) };
+    settings.theme = settings.theme === 'light' ? 'light' : 'dark';
     if (Number(raw.version) < 2) settings.defaultTarget = 3;
     settings.defaultTarget = clamp(settings.defaultTarget, 1, 99);
     settings.restSeconds = clamp(settings.restSeconds, 0, 600);

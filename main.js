@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, powerSaveBlocker, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, powerSaveBlocker, shell, nativeTheme } = require('electron');
 const path = require('path');
 
 const APP_ID = 'com.repboard.desktop';
@@ -6,15 +6,16 @@ let mainWindow;
 let blockerId = null;
 
 app.setAppUserModelId(APP_ID);
+nativeTheme.themeSource = 'dark';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1180,
     height: 780,
-    minWidth: 880,
+    minWidth: 960,
     minHeight: 600,
-    backgroundColor: '#07101f',
-    icon: path.join(__dirname, 'build', 'icon.png'),
+    backgroundColor: '#18201c',
+    icon: path.join(__dirname, 'build', 'icon.ico'),
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -38,6 +39,12 @@ ipcMain.handle('window:always-on-top', (_event, enabled) => {
   if (!mainWindow) return false;
   mainWindow.setAlwaysOnTop(Boolean(enabled), 'floating');
   return mainWindow.isAlwaysOnTop();
+});
+
+ipcMain.handle('window:theme', (_event, theme) => {
+  if (theme !== 'light' && theme !== 'dark') return;
+  nativeTheme.themeSource = theme;
+  mainWindow?.setBackgroundColor(theme === 'light' ? '#f7f8f7' : '#18201c');
 });
 
 ipcMain.handle('window:fullscreen', () => {

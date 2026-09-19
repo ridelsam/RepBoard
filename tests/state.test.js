@@ -11,6 +11,19 @@ function selectExercise(state, exercise, day = state.activeDay) {
   return state;
 }
 
+test('appearance defaults to dark and survives hydration without changing saved workouts', () => {
+  const saved = core.completeSet(core.defaultState(100), 200);
+  assert.equal(saved.settings.theme, 'dark');
+  saved.settings.theme = 'light';
+  const restored = core.hydrate(saved, 300);
+  assert.equal(restored.settings.theme, 'light');
+  assert.deepEqual(restored.sets, saved.sets);
+  delete saved.settings.theme;
+  assert.equal(core.hydrate(saved).settings.theme, 'dark');
+  saved.settings.theme = 'invalid';
+  assert.equal(core.hydrate(saved).settings.theme, 'dark');
+});
+
 test('a completed set is recorded immediately', () => {
   const state = selectExercise(core.defaultState(100), 'Squats');
   const next = core.completeSet(state, 200);

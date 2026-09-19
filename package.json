@@ -1,6 +1,6 @@
 {
   "name": "repboard",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "A touch-first workout set tracker and personal whiteboard for Windows.",
   "main": "main.js",
   "author": "RepBoard",
@@ -27,10 +27,11 @@
       "preload.js",
       "src/**/*",
       "build/icon.png",
+      "build/icon.ico",
       "package.json"
     ],
     "win": {
-      "icon": "build/icon.png",
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",

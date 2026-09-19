@@ -2,6 +2,20 @@
 
 All notable public changes to RepBoard will be documented here.
 
+## [1.7.0] - 2026-09-19
+
+### Changed
+
+- Applied the Quiet Form design with a pine-and-sage dark appearance and a white-and-forest light appearance.
+- Added a saved light/dark appearance toggle in Settings.
+- Updated the app logo and Windows icons to the minimalist dumbbell mark.
+- Refined the counter, history, board, and dialogs with restrained colors and typography.
+
+### Fixed
+
+- Automatically completing every exercise now saves the workout to History and clears the current sets, matching the Finish button.
+- Starting the next workout resets its elapsed time to zero.
+
 ## [1.6.0] - 2026-08-29
 
 ### Added

@@ -3,16 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#07101f" />
+    <meta name="theme-color" content="#18201c" />
     <title>RepBoard</title>
+    <script src="theme-init.js"></script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div id="app" class="app-shell">
       <header class="topbar">
         <div class="brand" aria-label="RepBoard">
-          <img src="../build/icon.png" alt="" />
-          <div><strong>RepBoard</strong><span>Workout touch board</span></div>
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 12v8m4-12v16m16-16v16m4-12v8M8 16h16"/></svg>
+          <div><strong>RepBoard</strong><span>A little stronger, every day.</span></div>
         </div>
 
         <nav class="mode-tabs" aria-label="Views">
@@ -69,19 +70,19 @@
           </aside>
 
           <section class="counter-stage">
+            <div class="counter-heading"><span id="exercisePosition" class="eyebrow"></span><h1 id="currentExerciseName"></h1><p>Your pace. Your progress.</p></div>
             <button id="counterTap" class="counter-ring" aria-label="Record one completed set">
               <div class="counter-inner">
                 <span id="countNumber">0</span>
-                <small>SETS</small>
+                <small>Sets completed</small>
                 <em>Tap after your set</em>
               </div>
             </button>
 
             <div class="counter-controls">
               <button id="minusBtn" class="count-button minus" aria-label="Remove the last completed set">−</button>
-              <button id="plusBtn" class="count-button plus" aria-label="Record one completed set">+</button>
+              <button id="plusBtn" class="count-button plus" aria-label="Record one completed set">+ <span>Record set</span></button>
             </div>
-
             <div class="target-row">
               <span>Set goal</span>
               <div class="stepper">
@@ -91,7 +92,7 @@
               </div>
               <span id="targetHint">3 to go</span>
             </div>
-
+            <p class="counter-note">Small steps. Steady progress.</p>
           </section>
 
           <aside class="side-panel sets-panel">
@@ -108,11 +109,11 @@
               <button class="tool-button" data-tool="eraser" aria-pressed="false">Eraser</button>
             </div>
             <div id="colorPicker" class="color-picker" aria-label="Pen color">
-              <button data-color="#b8ff28" class="color active" style="--color:#b8ff28" aria-label="Lime"></button>
-              <button data-color="#37d5ff" class="color" style="--color:#37d5ff" aria-label="Cyan"></button>
-              <button data-color="#ffffff" class="color" style="--color:#ffffff" aria-label="White"></button>
-              <button data-color="#ff6b8b" class="color" style="--color:#ff6b8b" aria-label="Pink"></button>
-              <button data-color="#ffc857" class="color" style="--color:#ffc857" aria-label="Amber"></button>
+              <button data-color="accent" class="color active" style="--color:var(--accent)" aria-label="Forest / sage"></button>
+              <button data-color="#6485a8" class="color" style="--color:#6485a8" aria-label="Slate blue"></button>
+              <button data-color="text" class="color" style="--color:var(--text)" aria-label="Ink / chalk"></button>
+              <button data-color="#ba7c7c" class="color" style="--color:#ba7c7c" aria-label="Dusty rose"></button>
+              <button data-color="#ac8b48" class="color" style="--color:#ac8b48" aria-label="Ochre"></button>
             </div>
             <label class="size-control">Size <input id="brushSize" type="range" min="2" max="30" value="7" /></label>
             <div class="tool-spacer"></div>
@@ -141,6 +142,7 @@
       <dialog id="settingsDialog" class="modal">
         <form method="dialog">
           <div class="modal-header"><div><span class="eyebrow">Preferences</span><h2>Settings</h2></div><button class="close-button" value="cancel" aria-label="Close">×</button></div>
+          <div class="appearance-setting"><div><strong>Appearance</strong><span>Quiet Form</span></div><div class="theme-toggle" role="group" aria-label="Appearance"><button type="button" data-theme-choice="light" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>Light</button><button type="button" data-theme-choice="dark" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14a8.5 8.5 0 0 1-10-10A8.5 8.5 0 1 0 20 14Z"/></svg>Dark</button></div></div>
           <label class="setting-row"><div><strong>Target sound</strong><span>Play a short tone when you reach the target</span></div><input id="soundSetting" type="checkbox" /></label>
           <label class="setting-row"><div><strong>Keep display awake</strong><span>Prevent the screen from sleeping during a workout</span></div><input id="awakeSetting" type="checkbox" /></label>
           <label class="field-row"><span>Default set goal</span><input id="defaultTargetSetting" type="number" min="1" max="99" /></label>
